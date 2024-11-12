@@ -5,13 +5,14 @@ using Microsoft.AspNetCore.Mvc;
 using API.Data;
 using API.DTOs;
 using Microsoft.EntityFrameworkCore;
+using API.Interfaces;
 
 namespace API.Controllers;
 
-public class AccountController(DataContext context) : BaseApiController
+public class AccountController(DataContext context, ITokenService tokenService) : BaseApiController
 {
     [HttpPost("register")]
-    public async Task<ActionResult<AppUser>> Register(RegisterDto registerDto)
+    public async Task<ActionResult<UserDto>> Register(RegisterDto registerDto)
     {
         if (await UserExists(registerDto.UserName))
         {
@@ -29,7 +30,11 @@ public class AccountController(DataContext context) : BaseApiController
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        return Ok(user);
+        return new UserDto
+        {
+            Username = user.UserName,
+            Token = tokenService.CreateToken(user)
+        };
     }
 
     private async Task<bool> UserExists(string username)
@@ -39,7 +44,7 @@ public class AccountController(DataContext context) : BaseApiController
 
 
     [HttpPost("login")]
-    public async Task<ActionResult<AppUser>> Login(LoginDto loginDto)
+    public async Task<ActionResult<UserDto>> Login(LoginDto loginDto)
     {
         if (!await UserExists(loginDto.UserName))
         {
@@ -53,7 +58,11 @@ public class AccountController(DataContext context) : BaseApiController
             return Unauthorized("Invalid username / password");
         }
 
-        return Ok(user);
+        return new UserDto
+        {
+            Username = user.UserName,
+            Token = tokenService.CreateToken(user)
+        };
     }
 
     private static bool VerifyPassword(string password, byte[] storedHash, byte[] storedSalt)
